@@ -24,8 +24,6 @@ SWATIAN-WOLF RECON is a Python-based CLI tool that wraps industry-standard recon
 <img width="1738" height="381" alt="Screenshot_2026-06-26_08-27-05" src="https://github.com/user-attachments/assets/b1548db5-f165-4a2f-a98a-5723ed54d138" />
 <img width="1155" height="589" alt="Screenshot_2026-06-26_08-28-05" src="https://github.com/user-attachments/assets/01488ac2-5beb-4be0-b800-e156a6d50ea4" />
 
-
-
 ## Prerequisites
 
 ### Python
@@ -65,6 +63,7 @@ sudo apt update
 sudo apt install -y python3 python3-pip git nmap openssl sslscan dnsutils
 pip3 install rich pyyaml requests argparse
 # Install Go-based tools if you have Go installed:
+# If Go module downloads fail due to DNS/resolver issues, try prefixing with `GODEBUG=netdns=go`.
 # go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 # go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 # go install -v github.com/projectdiscovery/amass/v3/...@latest
@@ -76,8 +75,10 @@ pip3 install rich pyyaml requests argparse
 # go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
 # go install -v github.com/tomnomnom/assetfinder@latest
 # go install -v github.com/zricethezav/gitleaks/v8@latest
-# go install -v github.com/trufflesecurity/trufflehog/v3@latest
-# go install -v github.com/projectdiscovery/cloud_enum/cmd/cloud_enum@latest
+# If `go install` fails for trufflehog, use the upstream install script:
+# curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b $(go env GOPATH)/bin
+# Automatic Go install for cloud_enum is currently unavailable because the upstream repository is not available.
+# Install cloud_enum manually if needed or omit it from your tool set.
 # go install -v github.com/laramies/theHarvester@latest
 ```
 

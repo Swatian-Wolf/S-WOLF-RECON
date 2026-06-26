@@ -38,14 +38,37 @@ def ensure_results_root(project_root: Path | None = None, results_root_name: str
     return results_root
 
 
+def _get_unique_session_dir(parent: Path, base_name: str) -> Path:
+    """Return a unique session directory path under parent by appending numeric suffixes."""
+    session_dir = parent / base_name
+    if not session_dir.exists():
+        return session_dir
+    suffix = 1
+    while True:
+        candidate = parent / f"{base_name}_{suffix}"
+        if not candidate.exists():
+            return candidate
+        suffix += 1
+
+
 def create_session_folder(target: str, project_root: Path | None = None, results_root_name: str | None = None) -> Path:
     """Create a new results session folder for a scan target and return its path."""
     results_root = ensure_results_root(project_root, results_root_name)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    session_name = f"{_sanitize_target(target)}_{timestamp}"
-    session_dir = results_root / session_name
+    target_dir = results_root / _sanitize_target(target)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    session_name = _sanitize_target(target)
+    session_dir = _get_unique_session_dir(target_dir, session_name)
     session_dir.mkdir(parents=True, exist_ok=True)
     return session_dir
+
+
+def get_result_filename(base_filename: str, target: str) -> str:
+    """Return a filename that includes the target for easier result identification."""
+    base_path = Path(base_filename)
+    stem = base_path.stem
+    suffix = base_path.suffix or ".txt"
+    sanitized_target = _sanitize_target(target)
+    return f"{stem}_{sanitized_target}{suffix}"
 
 
 def _sanitize_target(target: str) -> str:
@@ -54,16 +77,6 @@ def _sanitize_target(target: str) -> str:
     for char in "\\/:*?\"<>|":
         sanitized = sanitized.replace(char, "_")
     return sanitized
-
-
-def create_session_folder(target: str, project_root: Path | None = None) -> Path:
-    """Create a new Results/session folder for a scan target and return its path."""
-    results_root = ensure_results_root(project_root)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    session_name = f"{_sanitize_target(target)}_{timestamp}"
-    session_dir = results_root / session_name
-    session_dir.mkdir(parents=True, exist_ok=True)
-    return session_dir
 
 
 def _build_header(filename: str, module: str, target: str, date_time: datetime) -> str:
@@ -78,6 +91,7 @@ def write_to_file(session_dir: str | Path, filename: str, content: str, module: 
     """Append content to a results file in the session folder, creating it with a header if needed."""
     session_path = Path(session_dir)
     session_path.mkdir(parents=True, exist_ok=True)
+    filename = get_result_filename(filename, target)
     result_file = session_path / filename
     now = datetime.now()
     if not result_file.exists():
@@ -96,7 +110,8 @@ def generate_scan_summary(session_dir: str | Path, target: str, modules_run: lis
     header = _build_header(summary_path.name, "scan_summary", target, now)
     lines = [header, "Scan Summary\n", f"Target: {target}\n", f"Session folder: {session_path}\n", f"Started: {now.strftime('%Y-%m-%d %H:%M:%S')}\n", "Modules run:\n"]
     for module in modules_run:
-        filename = FILENAME_MAP.get(module, f"{module}.txt")
+        base_filename = FILENAME_MAP.get(module, f"{module}.txt")
+        filename = get_result_filename(base_filename, target)
         lines.append(f" - {module}: {filename}\n")
     summary_path.write_text("".join(lines), encoding="utf-8")
     return summary_path

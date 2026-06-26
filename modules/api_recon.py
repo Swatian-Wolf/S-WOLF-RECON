@@ -1,9 +1,8 @@
-import subprocess
+import requests
 from pathlib import Path
-from shutil import which
 from urllib.parse import urljoin, urlparse
 
-from utils.display import print_error, print_result_table, print_section, print_success, print_warning
+from utils.display import print_result_table, print_section, print_success, print_warning
 from utils.file_manager import FILENAME_MAP, write_to_file
 
 
@@ -26,25 +25,6 @@ COMMON_API_PATHS = [
 ]
 
 
-def _run_command(command: list[str], timeout: int = 120) -> tuple[bool, str, str]:
-    try:
-        process = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-            input="",
-        )
-        if process.returncode != 0:
-            return False, process.stdout or "", process.stderr or f"Command exited with {process.returncode}"
-        return True, process.stdout or "", process.stderr or ""
-    except subprocess.TimeoutExpired as exc:
-        return False, exc.stdout or "", exc.stderr or f"Command timed out after {timeout} seconds"
-    except FileNotFoundError as exc:
-        return False, "", str(exc)
-
-
 def _build_root_url(target: str) -> str:
     parsed = urlparse(target if target.startswith(("http://", "https://")) else f"https://{target}")
     scheme = parsed.scheme or "https"
@@ -52,12 +32,22 @@ def _build_root_url(target: str) -> str:
     return f"{scheme}://{netloc.rstrip('/')}"
 
 
-def _probe_urls(httpx_path: str, urls: list[str], timeout: int) -> list[tuple[str, bool, str]]:
+def _probe_urls(urls: list[str], timeout: int) -> list[tuple[str, bool, str]]:
     results = []
+    headers = {"User-Agent": "SWOLF-RECON/1.0"}
     for url in urls:
-        command = [httpx_path, "-silent", "-status-code", "-location", "-timeout", str(timeout), url]
-        success, stdout, stderr = _run_command(command, timeout=timeout)
-        results.append((url, success, stdout.strip() if success else stderr.strip()))
+        try:
+            response = requests.get(url, headers=headers, allow_redirects=True, timeout=timeout)
+            location = response.headers.get("Location", "")
+            output = f"{response.status_code}"
+            if location:
+                output += f" -> {location}"
+            body = response.text or ""
+            if any(keyword in body.lower() for keyword in ("openapi", "swagger", "graphql")):
+                output += " | body hints"
+            results.append((url, True, output))
+        except requests.RequestException as exc:
+            results.append((url, False, str(exc).strip()))
     return results
 
 
@@ -85,22 +75,13 @@ def run(target, session_dir, config=None):
     tool_paths = config.get("tool_paths", {}) if isinstance(config, dict) else {}
     timeout_seconds = config.get("scan_defaults", {}).get("timeout", 180) if isinstance(config, dict) else 180
 
-    httpx_path = tool_paths.get("httpx", "httpx")
     report_lines = [f"=== API Recon for {target} ==="]
-
-    if not (Path(httpx_path).exists() or which(httpx_path)):
-        missing_tool = f"httpx binary not found: {httpx_path}. Set tool_paths.httpx in config.yaml or install httpx."
-        print_error(missing_tool)
-        report_lines.append(missing_tool)
-        write_to_file(session_path, filename, "\n".join(report_lines), "API Recon", target)
-        return
-
     root_url = _build_root_url(target)
     report_lines.append(f"Root URL: {root_url}")
 
     endpoint_urls = [urljoin(root_url, path) for path in COMMON_API_PATHS]
     report_lines.append("\n--- Testing common API endpoints ---")
-    probe_results = _probe_urls(httpx_path, endpoint_urls, timeout_seconds)
+    probe_results = _probe_urls(endpoint_urls, timeout_seconds)
 
     discovered = []
     for url, success, output in probe_results:

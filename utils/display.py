@@ -31,7 +31,7 @@ def print_result_table(headers, rows):
     for header in headers:
         table.add_column(str(header), style="white")
     for row in rows:
-        table.add_row(*[str(item) for item in row])
+        table.add_row(*[Text(str(item), style="white") for item in row])
     console.print(table)
 
 

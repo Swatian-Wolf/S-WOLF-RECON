@@ -1,9 +1,11 @@
 import os
+import re
 import subprocess
 from pathlib import Path
 from shutil import which
 from rich.console import Console
 from rich.table import Table
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 console = Console()
 TOOLS = [
@@ -40,8 +42,8 @@ INSTALL_COMMANDS = {
     "dnsx": "go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest",
     "assetfinder": "go install -v github.com/tomnomnom/assetfinder@latest",
     "gitleaks": "go install -v github.com/zricethezav/gitleaks/v8@latest",
-    "trufflehog": "go install -v github.com/trufflesecurity/trufflehog/v3@latest",
-    "cloud_enum": "go install -v github.com/projectdiscovery/cloud_enum/cmd/cloud_enum@latest",
+    "trufflehog": "curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b \"$HOME/.local/bin\"",
+    "cloud_enum": "Automatic Go install currently unavailable; install manually if needed",
     "whatweb": "brew install whatweb  # or install via package manager",
     "dig": "sudo apt-get install -y dnsutils  # Debian/Ubuntu",
     "openssl": "sudo apt-get install -y openssl",
@@ -68,30 +70,87 @@ def _command_available(command: str) -> bool:
     return bool(which(command.split()[0]))
 
 
+def _extract_progress_percentage(line: str) -> int | None:
+    match = re.search(r"(\d{1,3})\s*%", line)
+    if match:
+        try:
+            value = int(match.group(1))
+            return min(max(value, 0), 100)
+        except ValueError:
+            return None
+    return None
+
+
 def install_tools(missing_tools: list[str], tool_paths: dict | None = None) -> tuple[list[str], list[str]]:
     installed = []
     failed = []
-    for tool in missing_tools:
+    total = len(missing_tools)
+    for index, tool in enumerate(missing_tools, start=1):
         install_command = INSTALL_COMMANDS.get(tool)
         if not install_command:
             console.print(f"No automatic install command defined for {tool}.", style="bold yellow")
             failed.append(tool)
             continue
 
-        console.print(f"Installing {tool}...", style="bold yellow")
-        env = os.environ.copy()
-        if install_command.startswith("go install"):
-            env["GOBIN"] = str(Path.home() / ".local" / "bin")
-            env["PATH"] = f"{env['GOBIN']}:{env.get('PATH', '')}"
-        result = subprocess.run(install_command, shell=True, env=env, capture_output=True, text=True)
-        if result.returncode == 0:
-            console.print(f"Finished install command for {tool}.", style="green")
-        else:
+        if tool == "cloud_enum":
             console.print(
-                f"Installation command for {tool} failed with exit code {result.returncode}.\n"
-                f"{result.stderr or result.stdout}",
-                style="bold red",
+                "Automatic install for cloud_enum is currently unavailable because the upstream repository is not available."
+                " Install it manually if you need it.",
+                style="bold yellow",
             )
+            failed.append(tool)
+            continue
+
+        console.print(f"\n[bold cyan]Installing {tool} ({index}/{total})[/bold cyan]")
+        env = os.environ.copy()
+        if install_command.startswith("go install") or "-b \"$HOME/.local/bin\"" in install_command:
+            go_bin = str(Path.home() / ".local" / "bin")
+            env["GOBIN"] = go_bin
+            env["PATH"] = f"{go_bin}:{env.get('PATH', '')}"
+            existing_godebug = env.get("GODEBUG", "").strip()
+            env["GODEBUG"] = (
+                f"{existing_godebug},netdns=go" if existing_godebug else "netdns=go"
+            )
+            os.environ["PATH"] = env["PATH"]
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
+            task = progress.add_task(f"{tool}", total=100)
+            process = subprocess.Popen(
+                install_command,
+                shell=True,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                executable="/bin/bash",
+            )
+            if process.stdout is not None:
+                for raw_line in process.stdout:
+                    line = raw_line.rstrip()
+                    if not line:
+                        continue
+                    console.print(f"[dim]{line}[/dim]")
+                    percent = _extract_progress_percentage(line)
+                    if percent is not None:
+                        progress.update(task, completed=percent, description=f"{tool} {percent}%")
+            process.wait()
+            if process.returncode == 0:
+                progress.update(task, completed=100, description=f"{tool} completed")
+                console.print(f"Finished install command for {tool}.", style="green")
+            else:
+                console.print(
+                    f"Installation command for {tool} failed with exit code {process.returncode}.",
+                    style="bold red",
+                )
+
         if _resolve_tool_exists(tool, tool_paths):
             installed.append(tool)
         else:

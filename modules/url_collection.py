@@ -54,7 +54,7 @@ def run(target, session_dir, config=None):
     report_lines = ["=== katana Output ==="]
     all_urls = set()
 
-    katana_command = [katana_path, "-url", normalized_target, "-silent"]
+    katana_command = [katana_path, "-u", normalized_target, "-silent"]
     success, stdout, stderr = _run_command(katana_command)
     if success:
         katana_urls = _parse_urls(stdout)

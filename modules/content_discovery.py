@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -38,7 +39,6 @@ def _parse_ffuf_output(output: str) -> list[tuple[str, str, str]]:
 
 def run(target, session_dir, config=None):
     """Perform content discovery and save results to the session folder."""
-    import re
 
     print_section(f"Content Discovery: {target}")
     filename = FILENAME_MAP["content_discovery"]

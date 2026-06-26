@@ -11,7 +11,7 @@ from rich.text import Text
 from modules import api_recon, cloud_recon, content_discovery, dns_recon, email_enum, git_exposure, js_analysis, misc_checks, port_scan, ssl_analysis, subdomain_enum, url_collection, web_fingerprint
 from utils.banner import print_banner
 from utils.display import print_error, print_info, print_section, print_success, print_warning
-from utils.file_manager import FILENAME_MAP, create_session_folder, show_results_map
+from utils.file_manager import FILENAME_MAP, create_session_folder, get_result_filename, show_results_map
 from utils.tool_checker import install_tools, print_startup_table, verify_tools
 from utils.validator import validate_file_of_targets, validate_menu_choice, validate_target
 
@@ -245,7 +245,10 @@ def build_module_table() -> Table:
 
 def prompt_target() -> tuple[list[str], str]:
     while True:
-        answer = console.input("Enter target domain/IP (or path to a .txt file with multiple targets): ").strip()
+        answer = console.input("Enter target domain/IP (or path to a .txt file with multiple targets, q to quit): ").strip()
+        if answer.lower() in ("q", "quit", "exit"):
+            print_info("Exiting.")
+            raise SystemExit(0)
         if not answer:
             print_error("Target input cannot be empty. Please enter a domain, IP, CIDR, or path to a text file.")
             continue
@@ -285,7 +288,10 @@ def prompt_module_selection(config: dict) -> list[dict]:
     max_option = len(MODULES)
     while True:
         console.print(build_module_table())
-        choice = console.input("Select modules to run (e.g. 1,2,5 or 1-4 or all): ").strip()
+        choice = console.input("Select modules to run (e.g. 1,2,5 or 1-4 or all, q to quit): ").strip()
+        if choice.lower() in ("q", "quit", "exit"):
+            print_info("Exiting.")
+            raise SystemExit(0)
         if choice == "0":
             selections = list(range(1, max_option + 1))
         else:
@@ -320,11 +326,14 @@ def prompt_module_selection(config: dict) -> list[dict]:
 
 def prompt_yes_no(message: str) -> bool:
     while True:
-        answer = console.input(message).strip().lower()
+        answer = console.input(f"{message} (y/n, q to quit): ").strip().lower()
         if answer in ("y", "yes"):
             return True
         if answer in ("n", "no"):
             return False
+        if answer in ("q", "quit", "exit"):
+            print_info("Exiting.")
+            raise SystemExit(0)
         print_error("Please enter y or n.")
 
 
@@ -354,7 +363,8 @@ def run_scan(targets: list[str], selected_modules: list[dict], session_dir: Path
                 progress.update(task, description=description)
                 try:
                     module["module"].run(target, session_dir, config)
-                    file_path = session_dir / FILENAME_MAP.get(module["key"], f"{module['key']}.txt")
+                    base_filename = FILENAME_MAP.get(module["key"], f"{module['key']}.txt")
+                    file_path = session_dir / get_result_filename(base_filename, target)
                     print_success(f"Completed {module['name']} for {target}: {file_path}")
                 except Exception as exc:
                     print_error(f"{module['name']} failed for {target}: {exc}")
