@@ -1,0 +1,29 @@
+tool_paths:
+  nmap: nmap
+  subfinder: subfinder
+  httpx: httpx
+  amass: amass
+  nuclei: nuclei
+  waybackurls: waybackurls
+  gau: gau
+  ffuf: ffuf
+  katana: katana
+  dnsx: dnsx
+  assetfinder: assetfinder
+  gitleaks: gitleaks
+  trufflehog: trufflehog
+  cloud_enum: cloud_enum
+  whatweb: whatweb
+  dig: dig
+  openssl: openssl
+  sslscan: sslscan
+  theHarvester: theHarvester
+scan_defaults:
+  nmap_flags: -sV -T4 --top-ports 1000
+  ffuf_wordlist: /usr/share/wordlists/dirb/common.txt
+  ffuf_threads: 50
+  timeout_seconds: 120
+output:
+  results_dir: Results
+  verbose: true
+first_run: false
