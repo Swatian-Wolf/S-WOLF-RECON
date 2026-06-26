@@ -16,6 +16,16 @@ SWATIAN-WOLF RECON is a Python-based CLI tool that wraps industry-standard recon
 - Multiple target support via `*.txt` input files
 - Configurable tool paths and scan defaults via `config.yaml`
 
+
+<img width="1918" height="839" alt="Screenshot_2026-06-26_06-41-10" src="https://github.com/user-attachments/assets/dff4911a-13fb-4fad-922a-b751efe47297" />
+<img width="711" height="406" alt="Screenshot_2026-06-26_06-41-31" src="https://github.com/user-attachments/assets/1fcefc04-dde0-4a7f-9054-9b90c6cff3de" />
+<img width="306" height="493" alt="Screenshot_2026-06-26_06-42-10" src="https://github.com/user-attachments/assets/723398e5-1ece-4bf6-bb41-0ea53e095ab5" />
+<img width="1426" height="476" alt="Screenshot_2026-06-26_08-23-10" src="https://github.com/user-attachments/assets/608fd7e4-a3d6-4bb2-845a-d8b4b656d7cd" />
+<img width="1738" height="381" alt="Screenshot_2026-06-26_08-27-05" src="https://github.com/user-attachments/assets/b1548db5-f165-4a2f-a98a-5723ed54d138" />
+<img width="1155" height="589" alt="Screenshot_2026-06-26_08-28-05" src="https://github.com/user-attachments/assets/01488ac2-5beb-4be0-b800-e156a6d50ea4" />
+
+
+
 ## Prerequisites
 
 ### Python
