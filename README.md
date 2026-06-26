@@ -46,6 +46,8 @@ The tool wraps these external utilities:
 - `sslscan`
 - `theHarvester`
 
+SWOLF can now offer to install missing tools automatically during startup. For Go-based tools installed via `go install`, make sure your Go binary directory (usually `$(go env GOPATH)/bin`) is available in your `PATH`.
+
 ### Debian / Ubuntu
 
 ```bash
@@ -80,9 +82,16 @@ brew install subfinder httpx amass nuclei waybackurls gau ffuf katana dnsx asset
 ## Installation
 
 ```bash
-git clone https://github.com/<your-org>/swatian-wolf-recon.git
-cd swatian-wolf-recon
+git clone https://github.com/Swatian-Wolf/S-WOLF-RECON.git
+cd S-WOLF-RECON
 pip3 install -r requirements.txt
+```
+
+> Note: `requirements.txt` installs Python packages only. External recon tools such as `katana`, `dnsx`, `assetfinder`, `gitleaks`, `trufflehog`, `cloud_enum`, `nuclei`, `waybackurls`, and `gau` must be installed separately using your package manager or `go install` commands.
+>
+> SWOLF can detect missing external tools and prompt you to install them automatically on startup. If you use `go install`, ensure `$(go env GOPATH)/bin` is in your `PATH` so SWOLF can find those binaries.
+
+```bash
 python3 swolf.py
 ```
 
