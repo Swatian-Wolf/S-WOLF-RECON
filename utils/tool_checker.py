@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 from shutil import which
 from rich.console import Console
@@ -28,7 +30,7 @@ TOOLS = [
 INSTALL_COMMANDS = {
     "subfinder": "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
     "httpx": "go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest",
-    "nmap": "sudo apt install nmap",
+    "nmap": "sudo apt-get install -y nmap",
     "amass": "go install -v github.com/owasp-amass/amass/v3/...@latest",
     "nuclei": "go install -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest",
     "waybackurls": "go install -v github.com/tomnomnom/waybackurls@latest",
@@ -41,9 +43,9 @@ INSTALL_COMMANDS = {
     "trufflehog": "go install -v github.com/trufflesecurity/trufflehog/v3@latest",
     "cloud_enum": "go install -v github.com/projectdiscovery/cloud_enum/cmd/cloud_enum@latest",
     "whatweb": "brew install whatweb  # or install via package manager",
-    "dig": "sudo apt install dnsutils  # Debian/Ubuntu",
-    "openssl": "sudo apt install openssl",
-    "sslscan": "sudo apt install sslscan",
+    "dig": "sudo apt-get install -y dnsutils  # Debian/Ubuntu",
+    "openssl": "sudo apt-get install -y openssl",
+    "sslscan": "sudo apt-get install -y sslscan",
     "theHarvester": "go install -v github.com/laramies/theHarvester@latest",
 }
 
@@ -60,6 +62,42 @@ def _resolve_tool_exists(tool: str, tool_paths: dict | None = None) -> bool:
 
 def get_tool_status(tool_paths: dict | None = None):
     return {tool: _resolve_tool_exists(tool, tool_paths) for tool in TOOLS}
+
+
+def _command_available(command: str) -> bool:
+    return bool(which(command.split()[0]))
+
+
+def install_tools(missing_tools: list[str], tool_paths: dict | None = None) -> tuple[list[str], list[str]]:
+    installed = []
+    failed = []
+    for tool in missing_tools:
+        install_command = INSTALL_COMMANDS.get(tool)
+        if not install_command:
+            console.print(f"No automatic install command defined for {tool}.", style="bold yellow")
+            failed.append(tool)
+            continue
+
+        console.print(f"Installing {tool}...", style="bold yellow")
+        env = os.environ.copy()
+        if install_command.startswith("go install"):
+            env["GOBIN"] = str(Path.home() / ".local" / "bin")
+            env["PATH"] = f"{env['GOBIN']}:{env.get('PATH', '')}"
+        result = subprocess.run(install_command, shell=True, env=env, capture_output=True, text=True)
+        if result.returncode == 0:
+            console.print(f"Finished install command for {tool}.", style="green")
+        else:
+            console.print(
+                f"Installation command for {tool} failed with exit code {result.returncode}.\n"
+                f"{result.stderr or result.stdout}",
+                style="bold red",
+            )
+        if _resolve_tool_exists(tool, tool_paths):
+            installed.append(tool)
+        else:
+            failed.append(tool)
+
+    return installed, failed
 
 
 def print_startup_table(tool_paths: dict | None = None):

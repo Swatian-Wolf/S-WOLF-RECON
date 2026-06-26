@@ -12,7 +12,7 @@ from modules import api_recon, cloud_recon, content_discovery, dns_recon, email_
 from utils.banner import print_banner
 from utils.display import print_error, print_info, print_section, print_success, print_warning
 from utils.file_manager import FILENAME_MAP, create_session_folder, show_results_map
-from utils.tool_checker import print_startup_table, verify_tools
+from utils.tool_checker import install_tools, print_startup_table, verify_tools
 from utils.validator import validate_file_of_targets, validate_menu_choice, validate_target
 
 console = Console()
@@ -263,6 +263,24 @@ def prompt_target() -> tuple[list[str], str]:
             continue
 
 
+def prompt_install_missing_tools(missing: list[str], config: dict) -> list[str]:
+    while missing:
+        print_warning("The selected modules require tools that are not installed.")
+        if prompt_yes_no("Install missing tools now? (y/n): "):
+            installed, failed = install_tools(missing, config.get("tool_paths"))
+            if installed:
+                print_success(f"Installed tools: {', '.join(installed)}")
+            missing = [tool for tool in missing if tool not in installed]
+            if not missing:
+                return []
+            print_error(f"Still missing: {', '.join(missing)}")
+            if not prompt_yes_no("Retry installation for the remaining tools? (y/n): "):
+                break
+        else:
+            break
+    return missing
+
+
 def prompt_module_selection(config: dict) -> list[dict]:
     max_option = len(MODULES)
     while True:
@@ -282,19 +300,21 @@ def prompt_module_selection(config: dict) -> list[dict]:
         required_tools = sorted({tool for module in selected_modules for tool in module["tools"]})
         missing = verify_tools(required_tools, config.get("tool_paths"))
         if missing:
-            print_warning(
-                "Some selected modules require tools that are not installed. "
-                "If you continue, modules depending on missing tools will be skipped."
-            )
-            yes = prompt_yes_no("Skip missing tools and continue? (y/n): ")
-            if not yes:
-                continue
-            selected_modules = [
-                module for module in selected_modules if not any(tool in missing for tool in module["tools"])
-            ]
-            if not selected_modules:
-                print_error("All selected modules require missing tools. Select a smaller set or install the missing tools.")
-                continue
+            missing = prompt_install_missing_tools(missing, config)
+            if missing:
+                print_warning(
+                    "Some tools are still missing. Selected modules requiring these tools will be skipped."
+                )
+                if not prompt_yes_no("Skip modules that require missing tools and continue? (y/n): "):
+                    continue
+                selected_modules = [
+                    module for module in selected_modules if not any(tool in missing for tool in module["tools"])
+                ]
+                if not selected_modules:
+                    print_error(
+                        "All selected modules require missing tools. Select a smaller set or install the missing tools."
+                    )
+                    continue
         return selected_modules
 
 
@@ -347,8 +367,8 @@ def main() -> None:
     apply_first_run(config)
     print_startup_table(config.get("tool_paths"))
     check_ffuf_wordlist(config)
-    targets, input_source = prompt_target()
     selected_modules = prompt_module_selection(config)
+    targets, input_source = prompt_target()
     session_dir = create_session_folder(
         targets[0] if len(targets) == 1 else "multiple_targets",
         results_root_name=get_results_dir(config),
